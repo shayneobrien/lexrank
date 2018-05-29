@@ -1,0 +1,6 @@
+ipython
+jupyter
+pandas
+networkx
+scipy
+sklearn
