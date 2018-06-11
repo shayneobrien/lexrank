@@ -22,15 +22,17 @@ def clean_string(string):
 class LexRank:
     def __init__(self, method, threshold=None):
         """ Extract keyphrase from an input document using LexRank (pagerank on cosine similarity graph)
-        Cosine similarity method must be chosen from ['naive', 'idf-mod', 'tfidf']
+        Cosine similarity method must be chosen from ['naive', 'idf-mod', 'tfidf'].
+        Assumes documents 
         
         Input: list (document) containing strings / utterances / sentences
         Output: reranked list according to salience
         
         Usage:
-            >> corpus = load_kathy_corpus('../data/')
+            >> document = pd.read_csv('../data/document.csv', usecols=['sentences'], nrows=10000)
+            >> document = [clean_string(i) for i in set(document.sentences)] # assumes text in col 'sentences'
             >> keyphrases = LexRank('idf-mod')
-            >> keyphrases(speakers = ['k', 'K', 'kathy', 'Kathy', 'cathy', 'Cathy'], use_main = False)
+            >> keyphrases()
         """
         if method == 'naive':
             self.method = self._naive_sim
@@ -238,19 +240,19 @@ class Search:
 class Rank:
     """ Search a corpus for unigram/bigram occurrences, output LexRank rankings from documents 
     containing that phrase. Random sampling is used to maintain computational tractability if
-    the found results are too large. Entropy is enforce in ranked outputs.
+    the found results are too large. Entropy is enforced in ranked outputs.
     
     Initialization: corpus
     Input: token (e.g. 'Donald Trump', 'hillary', 'asia', ...)
-    Output: related radio segments containing the keyword, organized by salience
+    Output: segments containing the keyword, organized by salience
     
     Usage:
-        >> radio = pd.read_csv('../data.csv', usecols=['sentences'])
-        >> radio = [clean_string(i) for i in set(radio.sentences)]
-        >> radrank = RadRank(radio, 'idf-mod')
+        >> corpus = pd.read_csv('../data.csv', usecols=['sentences']) 
+        >> corpus = [clean_string(i) for i in set(corpus.sentences)]
+        >> radrank = RadRank(corpus, 'idf-mod')
         >> radrank('Donald Trump')
     """
-    def __init__(self, radio, method, context=50, resrate=1000, subrate=500):
+    def __init__(self, corpus, method, context=50, resrate=1000, subrate=500):
         
         # Resrate: number of samples from found segments in entire corpus
         self.resrate = resrate 
@@ -262,7 +264,7 @@ class Rank:
         self.cntx = context
         
         # Initialization of search can take a while depending on ngram
-        self.search = Search(radio)
+        self.search = Search(corpus)
         
         # LexRank (PageRank-based) reordering of output segments
         self.lexrank = LexRank(method)
@@ -285,8 +287,8 @@ class Rank:
         self.string = string
         
         results = self.search(self.string)
-        subradio = random.sample(results, min(len(results), self.resrate))
-        regrouped = self._regroup_subradio(subradio)
+        subcorpus = random.sample(results, min(len(results), self.resrate))
+        regrouped = self._regroup_subcorpus(subcorpus)
         
         subsamples = []
         for sub in regrouped:
@@ -298,11 +300,11 @@ class Rank:
         
         return subsamples
             
-    def _regroup_subradio(self, subradio):
+    def _regroup_subcorpus(self, subcorpus):
         """ Redefine the context window around the input string by grouping if it's an ngram """
-        subradio = [sub.split() for sub in subradio]
+        subcorpus = [sub.split() for sub in subcorpus]
         output = []
-        for sub in subradio: 
+        for sub in subcorpus: 
             idxs, j = [], 0
             for i in range(len(sub)-1):
                 if sub[i] + ' '+ sub[i+1] == self.string:
